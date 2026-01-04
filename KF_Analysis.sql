@@ -1,39 +1,30 @@
---Creating Table Of Analysis
-WITH base_table AS (
-  SELECT 
-    t.transaction_id,
-    t.date,
-    t.branch_id,
-    c.branch_name,
-    c.kota,
-    c.provinsi,
-    c.rating as rating_cabang,
-    t.customer_name,
-    t.product_id,
-    p.product_name,
-    p.price,
-    t.discount_percentage,
-    -- Perhitungan persentase laba berdasarkan harga produk
-    CASE 
-      WHEN p.price <= 50000 THEN 0.10
-      WHEN p.price > 50000 AND p.price <= 100000 THEN 0.15
-      WHEN p.price > 100000 AND p.price <= 300000 THEN 0.20
-      WHEN p.price > 300000 AND p.price <= 500000 THEN 0.25
-      ELSE 0.30
-    END AS persentase_gross_laba,
-    t.rating as rating_transaction
-  FROM `rakaminkfanalytics-482207.Rakamin_KF_Analytics.kf_final_transaction` AS t
-  LEFT JOIN `rakaminkfanalytics-482207.Rakamin_KF_Analytics.kf_kantor_cabang` AS c 
-    ON t.branch_id = c.branch_id
-  LEFT JOIN `rakaminkfanalytics-482207.Rakamin_KF_Analytics.kf_product` AS p 
-    ON t.product_id = p.product_id
-)
-
+--Query Syntax Table Analysis OF Performance Analytics Kimia Farma Business Year 2020-2023
+CREATE TABLE Kimia_Farma.final_task_dataset AS
 SELECT 
-  *,
-  -- Menghitung harga setelah diskon
-  (price * (1 - discount_percentage)) AS nett_sales,
-  -- Menghitung keuntungan bersih
-  ((price * (1 - discount_percentage)) * persentase_gross_laba) AS nett_profit
-FROM base_table
+    x.transaction_id, x.date,x.branch_id, x.branch_name,x.kota,x.provinsi, x.rating_cabang, x.customer_name, x.product_id, x.product_name, x.actual_price,x.discount_percentage,
+    x.persentase_gross_laba, x.nett_sales,
+    -- Calculation for Nett Profit: (Actual Price * Gross Laba %) - (Actual Price - Nett Sales)
+    (x.actual_price * x.persentase_gross_laba) - (x.actual_price - x.nett_sales) AS nett_profit,
+    x.rating as rating_transaksi,
+FROM (
+    SELECT 
+        a.transaction_id, a.date,a.branch_id, b.branch_name, b.kota,b.provinsi, b.rating AS rating_cabang, a.customer_name, a.product_id, c.product_name, c.price AS actual_price,
+        a.discount_percentage,
+        -- Profit percentage logic based on price tiers
+        CASE 
+            WHEN c.price <= 50000 THEN 0.10
+            WHEN c.price > 50000 AND c.price <= 100000 THEN 0.15
+            WHEN c.price > 100000 AND c.price <= 300000 THEN 0.20
+            WHEN c.price > 300000 AND c.price <= 500000 THEN 0.25
+            WHEN c.price > 500000 THEN 0.30 
+        END AS persentase_gross_laba,
+        -- Calculation for Nett Sales: Price after discount
+        (c.price - (c.price * a.discount_percentage)) AS nett_sales,
+        a.rating
+    FROM `Kimia_Farma.kf_final_transaction` AS a
+    LEFT JOIN `Kimia_Farma.kf_kantor_cabang` AS b 
+        ON a.branch_id = b.branch_id
+    LEFT JOIN `Kimia_Farma.kf_product` AS c 
+        ON a.product_id = c.product_id
+) x;
 
